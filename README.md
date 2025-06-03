@@ -1,138 +1,116 @@
-# SLiMS Bulian Deployment with Coolify
+# SLiMS Bulian Deployment dengan Coolify
 
-This repository contains the SLiMS Bulian 9.6.1 source code and Docker configuration files for deploying it on a Coolify instance.
+Repositori ini berisi kode sumber SLiMS Bulian (diasumsikan Anda telah melakukan fork dari repositori resmi dan menambahkan file-file Docker ini ke root) beserta konfigurasi Docker untuk melakukan deployment pada instance Coolify.
 
-## Prerequisites
+## Prasyarat
 
-1.  A running Coolify instance.
-2.  Git installed locally.
-3.  SLiMS Bulian source code (version 9.6.1 is included in the `slims9_bulian-9.6.1/` directory of this repository).
+1.  Instance Coolify yang berjalan.
+2.  Git terinstal secara lokal.
+3.  Anda telah melakukan fork repositori SLiMS Bulian (misalnya, `slims/slims9_bulian` atau yang relevan) ke akun Git Anda.
+4.  File `Dockerfile`, `docker-compose.yml`, dan `apache-slims.conf` dari panduan ini telah ditambahkan ke *root* repositori SLiMS hasil fork Anda.
 
-## Repository Structure
+## Struktur Repositori (Setelah Fork dan Penambahan File)
 
 ```
-.
-├── slims9_bulian-9.6.1/     # SLiMS source code
-├── Dockerfile               # Defines the SLiMS application image (PHP+Apache)
-├── apache-slims.conf        # Apache virtual host configuration
-├── docker-compose.yml       # Docker Compose file for Coolify
-└── README.md                # This file
+. (ROOT REPOSITORI SLIMS YANG SUDAH ANDA FORK)
+├── admin/
+├── config/
+│   └── database.sample.php
+├── files/
+├── ... (file & folder SLiMS lainnya)
+│
+├── Dockerfile               <-- File dari panduan ini
+├── docker-compose.yml       <-- File dari panduan ini
+└── apache-slims.conf        <-- File dari panduan ini
 ```
 
-## Deployment Steps on Coolify
+## Langkah-Langkah Deployment di Coolify
 
-1.  **Push to Your Git Repository:**
-    *   Clone this repository (or your fork).
-    *   Ensure the `slims9_bulian-9.6.1/` directory contains the SLiMS source.
-    *   Push the entire structure to your private or public Git repository (e.g., GitHub, GitLab).
+1.  **Commit & Push ke Repositori Git Anda:**
+    *   Pastikan semua file (`Dockerfile`, `docker-compose.yml`, `apache-slims.conf`) telah ditambahkan ke root repositori SLiMS hasil fork Anda.
+    *   Commit dan push perubahan tersebut ke repositori Git Anda (misalnya, GitHub, GitLab).
 
-2.  **Create a Database Service in Coolify:**
-    *   In your Coolify dashboard, go to **Services**.
-    *   Click **Add New Service** and choose **MariaDB** or **MySQL**.
-    *   Configure the database (e.g., name it `slims-db`, choose a version like MariaDB 10.5+ or MySQL 8.0+).
-    *   **Note down the service name** you gave it (e.g., `slims-db`). You'll need this for environment variables.
+2.  **Buat Aplikasi Baru di Coolify:**
+    *   Masuk ke dashboard Coolify Anda.
+    *   Pilih **Applications** > **Add New Application**.
+    *   Pilih **Build from a Git Repository**.
+    *   Hubungkan Coolify dengan penyedia Git Anda dan pilih repositori SLiMS hasil fork Anda.
+    *   **Build Pack:** Pilih **Docker Compose**.
+    *   **Docker Compose File Location:** Biarkan default (`/docker-compose.yml`), karena file tersebut ada di root repositori Anda.
+    *   **Branch:** Pilih branch yang ingin Anda deploy (misalnya, `main` atau `master`).
+    *   **Nama Layanan Aplikasi:** Coolify akan meminta Anda memberi nama untuk layanan ini (misalnya, `slims-app`). Ini akan menjadi nama layanan `slimsapp` yang ada di `docker-compose.yml` Anda.
+    *   **Nama Layanan Database:** Layanan `mariadb` yang didefinisikan dalam `docker-compose.yml` juga akan dibuat oleh Coolify. Anda bisa melihatnya sebagai bagian dari stack aplikasi Anda.
 
-3.  **Create the SLiMS Application in Coolify:**
-    *   Go to **Applications** in Coolify and click **Add New Application**.
-    *   Choose **Build from a Git Repository**.
-    *   Select your Git provider and repository.
-    *   **Build Pack:** Select **Docker Compose**.
-    *   **Docker Compose File Location:** `/docker-compose.yml` (assuming it's at the root of your Git repo).
-    *   **Branch:** Select the branch you want to deploy (e.g., `main` or `master`).
-    *   **Port Mappings:** Coolify usually auto-detects this. SLiMS runs on port 80 inside the container.
-    *   Give your application a **Name** (e.g., `slims-app`).
+3.  **Konfigurasi Environment Variables (Penting!):**
+    *   Setelah aplikasi dibuat di Coolify, navigasikan ke layanan `slimsapp` Anda.
+    *   Buka tab **Environment Variables**.
+    *   Coolify seharusnya sudah mendeteksi variabel lingkungan dari `docker-compose.yml`.
+    *   Variabel `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, dan `DB_PORT` untuk layanan `slimsapp` akan **secara otomatis diisi oleh Coolify** dengan nilai-nilai dari layanan `mariadb` yang juga didefinisikan dalam `docker-compose.yml`. Anda tidak perlu mengisinya secara manual jika `docker-compose.yml` Anda sudah benar.
+    *   **SANGAT PENTING:** Untuk layanan `mariadb`, Anda **HARUS** mengatur nilai yang aman untuk `MARIADB_ROOT_PASSWORD` dan `MARIADB_PASSWORD` (serta `MARIADB_USER` dan `MARIADB_DATABASE` jika Anda ingin berbeda dari default). Anda bisa melakukannya melalui UI Coolify di bagian environment variables untuk layanan `mariadb` tersebut. **Jangan gunakan password default di produksi!**
 
-4.  **Configure Environment Variables for SLiMS Application:**
-    *   Go to your newly created SLiMS application in Coolify.
-    *   Navigate to the **Environment Variables** tab.
-    *   Add the following variables, replacing `your_coolify_db_service_name` with the actual name of the database service you created in step 2 (e.g., `slims-db`):
-        *   `DB_HOST`: `${{service.your_coolify_db_service_name.host}}`
-        *   `DB_NAME`: `${{service.your_coolify_db_service_name.database}}`
-        *   `DB_USER`: `${{service.your_coolify_db_service_name.username}}`
-        *   `DB_PASSWORD`: `${{service.your_coolify_db_service_name.password}}`
-        *   `DB_PORT`: `${{service.your_coolify_db_service_name.port}}`
-        *   `PHP_UPLOAD_MAX_FILESIZE`: `64M` (or your desired value)
-        *   `PHP_POST_MAX_SIZE`: `64M` (or your desired value)
-        *   `PHP_MEMORY_LIMIT`: `256M` (or your desired value)
+4.  **Konfigurasi Domain & SSL:**
+    *   Masih di pengaturan aplikasi `slimsapp` Anda di Coolify, buka tab **Domains**.
+    *   Masukkan FQDN (Fully Qualified Domain Name) yang ingin Anda gunakan untuk SLiMS (misalnya, `slims.domainanda.com`).
+    *   Coolify akan menangani pembuatan sertifikat SSL (biasanya via Let's Encrypt).
 
-5.  **Configure Domain & SSL:**
-    *   Go to the **Domains** tab for your SLiMS application.
-    *   Enter the FQDN (Fully Qualified Domain Name) you want to use (e.g., `slims.yourdomain.com`).
-    *   Coolify will handle SSL certificate generation (usually via Let's Encrypt).
+5.  **Deploy Aplikasi:**
+    *   Klik tombol **Deploy** untuk aplikasi `slimsapp` Anda.
+    *   Pantau log build dan deployment di Coolify. Proses ini akan membangun image Docker dari `Dockerfile` Anda dan kemudian menjalankan layanan `slimsapp` dan `mariadb` sesuai `docker-compose.yml`.
 
-6.  **Deploy SLiMS Application:**
-    *   Click the **Deploy** button for your SLiMS application.
-    *   Monitor the build and deployment logs.
+6.  **Jalankan Web Installer SLiMS (Hanya untuk Pertama Kali):**
+    *   Setelah deployment berhasil, buka FQDN SLiMS Anda di browser (misalnya, `https://slims.domainanda.com`).
+    *   Anda akan diarahkan ke halaman instalasi SLiMS (`/install/index.php`).
+    *   Ikuti langkah-langkah instalasi SLiMS:
+        *   **Konfigurasi Database:**
+            *   **Host Database:** `mariadb` (sesuai nama layanan di `docker-compose.yml`).
+            *   **Nama Database:** Isi dengan nilai yang Anda set untuk `MARIADB_DATABASE` (misalnya, `slims_db`).
+            *   **User Database:** Isi dengan nilai `MARIADB_USER` (misalnya, `slims_user`).
+            *   **Password Database:** Isi dengan nilai `MARIADB_PASSWORD`.
+            *   **Port Database:** `3306`.
+        *   **Admin SLiMS:** Buat akun administrator untuk SLiMS.
+    *   Setelah instalasi berhasil, SLiMS akan meminta Anda untuk **menghapus direktori `install`**.
 
-7.  **Run SLiMS Web Installer (First Time Only):**
-    *   Once the deployment is successful, open your SLiMS FQDN in a web browser (e.g., `http://slims.yourdomain.com` or `https://slims.yourdomain.com`).
-    *   You should be redirected to the SLiMS installer (`/install/index.php`).
-    *   Follow the SLiMS installation steps:
-        *   **Database Configuration:** The installer should pre-fill some details. Ensure they match the database credentials from your Coolify database service. If the `config/database.php` was not created automatically by an entrypoint script (this setup doesn't include one for now, relying on the installer), you'll need to provide them. However, the environment variables set in Coolify *should* be available to the PHP process if SLiMS's installer or `database.sample.php` is designed to pick them up.
-            *   For this setup, the SLiMS installer will directly write to `config/database.php`. This file will be persisted thanks to the `slims_config` volume.
-        *   **Admin User:** Create your SLiMS administrator account.
-    *   After successful installation, SLiMS will instruct you to **delete the `install` directory**.
-
-8.  **Secure SLiMS - Remove `install` Directory:**
-    *   **Option 1 (Manual - for immediate security):**
-        1.  SSH into your Coolify server.
-        2.  Find your SLiMS container ID: `docker ps | grep your_slims_app_name`
-        3.  Access the container: `docker exec -it <container_id> bash`
-        4.  Remove the install directory: `rm -rf /var/www/html/install`
-        5.  Exit the container: `exit`
-    *   **Option 2 (Permanent - Recommended after first install):**
-        1.  Modify your `Dockerfile`. After the `COPY ./slims9_bulian-9.6.1/ /var/www/html/` line, add:
+7.  **Hapus Direktori `install` (SANGAT PENTING):**
+    *   **Opsi 1 (Manual - untuk keamanan segera):**
+        1.  Gunakan fitur "Open Remote Terminal" di Coolify untuk layanan `slimsapp`.
+        2.  Jalankan perintah: `rm -rf /var/www/html/install`
+        3.  Restart aplikasi SLiMS dari UI Coolify jika perlu.
+    *   **Opsi 2 (Permanen - Direkomendasikan setelah instalasi pertama berhasil):**
+        1.  Pada file `Dockerfile` Anda, hapus komentar pada baris:
+            ```dockerfile
+            # RUN rm -rf /var/www/html/install
+            ```
+            menjadi:
             ```dockerfile
             RUN rm -rf /var/www/html/install
             ```
-        2.  Commit and push this change to your Git repository.
-        3.  Redeploy your SLiMS application in Coolify. This will rebuild the image without the `install` directory. Your `config/database.php` (created by the installer) will be preserved by the `slims_config` volume.
+        2.  Commit dan push perubahan `Dockerfile` ini ke repositori Git Anda.
+        3.  Redeploy aplikasi SLiMS Anda di Coolify. Ini akan membangun image baru tanpa direktori `install`. File `config/database.php` yang dibuat oleh installer akan tetap ada karena disimpan di volume `slims_config`.
 
-## Persistent Data
+## Data Persisten
 
-Coolify manages the following Docker volumes for SLiMS:
-*   `slims_config`: Stores `config/database.php` and other configuration files.
-*   `slims_files`: Stores files uploaded via SLiMS (e.g., digital attachments).
-*   `slims_images`: Stores cover images and other SLiMS-managed images.
-*   `slims_repository`: For SLiMS's file repository features.
+Coolify akan mengelola volume Docker berikut untuk SLiMS, memastikan data Anda aman:
+*   `slims_config`: Menyimpan `config/database.php` dan file konfigurasi lainnya.
+*   `slims_files`: Menyimpan file yang diunggah melalui SLiMS (misalnya, lampiran digital).
+*   `slims_images`: Menyimpan gambar sampul dan gambar lain yang dikelola SLiMS.
+*   `slims_repository`: Untuk fitur repositori file SLiMS.
+*   `slims_mariadb_data`: Menyimpan semua data dari database MariaDB.
 
-These volumes ensure your data persists across deployments and updates.
+## Pemecahan Masalah
 
-## Troubleshooting
-
-*   Check Coolify's deployment logs for any build or runtime errors.
-*   Verify environment variables are correctly set and accessible by the SLiMS application.
-*   Ensure file/directory permissions within the container are correct for `www-data`.
-*   If the installer doesn't see the database, double-check the `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and `DB_PORT` environment variables in Coolify and ensure they match the details of your Coolify-managed database service.
+*   Periksa log deployment di Coolify untuk kesalahan build atau runtime.
+*   Pastikan variabel lingkungan untuk koneksi database di layanan `slimsapp` sudah benar dan menunjuk ke detail layanan `mariadb`.
+*   Verifikasi izin file/direktori di dalam container (`config/`, `files/`, `images/`, `repository/`) sudah benar untuk user `www-data`.
+*   Jika installer SLiMS tidak bisa terhubung ke database, periksa kembali konfigurasi `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, dan `DB_PORT` yang digunakan SLiMS saat proses instalasi. Pastikan sesuai dengan yang diatur untuk layanan `mariadb` di Coolify.
 ```
 
 ---
 
-**Explanation and Coolify Context:**
+**Poin Penting:**
 
-1.  **`Dockerfile`:**
-    *   Uses `php:8.1-apache` as a base, providing PHP and Apache.
-    *   Installs necessary PHP extensions for SLiMS.
-    *   Copies SLiMS source code.
-    *   Sets `www-data` permissions for writable directories. The `config` directory is made writable so the SLiMS installer can create/modify `database.php`.
-    *   Includes an `apache-slims.conf` to ensure `AllowOverride All` is set, which SLiMS often relies on for `.htaccess` files (though it's better to centralize Apache config).
+*   **Password Database:** Pastikan Anda mengganti password default (`RootP@$$wOrdCoolify` dan `P@$$wOrdCoolify`) di `docker-compose.yml` dengan password yang kuat dan aman, atau lebih baik lagi, atur melalui UI Coolify.
+*   **Direktori `install`:** Sangat krusial untuk menghapus direktori `install/` setelah instalasi SLiMS pertama berhasil.
+*   **Penyesuaian `Dockerfile`:** Jika Anda perlu menginstal ekstensi PHP tambahan atau dependensi sistem lain untuk plugin SLiMS tertentu, Anda bisa menambahkannya di `Dockerfile`.
+*   **Coolify Service Names:** Nama layanan di `docker-compose.yml` (`slimsapp` dan `mariadb`) digunakan untuk komunikasi internal antar container. Coolify akan memberi Anda opsi untuk memberi nama layanan secara keseluruhan di UI-nya (ini yang akan muncul di daftar aplikasi/layanan Anda di Coolify). Variabel seperti `${{service.mariadb.host}}` akan merujuk pada nama layanan internal (`mariadb`) yang didefinisikan di compose file.
 
-2.  **`docker-compose.yml`:**
-    *   Defines a single service `slims_app`.
-    *   `build: .` tells Coolify to build the image using the `Dockerfile` in the current directory.
-    *   **Volumes:** This is crucial.
-        *   `slims_config:/var/www/html/config`: The SLiMS installer will create/modify `config/database.php`. This volume ensures that file persists across container restarts/redeployments.
-        *   `slims_files`, `slims_images`, `slims_repository`: These are standard SLiMS directories for user-uploaded content and need to be persistent.
-    *   **Environment Variables:**
-        *   `DB_HOST`, `DB_NAME`, etc.: These use Coolify's service discovery templating (`${{service.YOUR_DB_SERVICE_NAME_IN_COOLIFY.host}}`). You **must** replace `your_coolify_db_service_name` with the actual name you give to your database service when you create it in Coolify. SLiMS's `database.sample.php` uses placeholders like `_DB_HOST_`. The SLiMS installer will ask for these details, and it will write them into `config/database.php`.
-        *   PHP settings are included as environment variables, which the PHP-Apache base image often respects.
-
-3.  **SLiMS Installation:**
-    *   On the first deployment, you will navigate to `yourdomain.com/install/`.
-    *   The SLiMS installer will guide you. For database details, you'll use the credentials of the database service you created in Coolify.
-    *   The installer writes to `config/database.php`. Because `/var/www/html/config` is a volume, this file will persist.
-
-4.  **Post-Installation:**
-    *   It is **critical** to remove the `install/` directory from SLiMS after installation for security. The README provides two methods. The Dockerfile modification is the more robust, permanent solution after the initial setup.
-
-This setup should allow you to get SLiMS Bulian running on Coolify. Remember to adapt the database service name in the `docker-compose.yml` environment variables.
+Semoga ini memberikan panduan yang lengkap!
