@@ -1,0 +1,47 @@
+services:
+  slims_app:
+    build: .
+    # Coolify handles port exposure based on FQDN settings. No need to define `ports` here.
+    volumes:
+      # config/database.php will be created by the SLiMS installer and needs to persist
+      - slims_config:/var/www/html/config
+      # SLiMS uploads and other data that should persist
+      - slims_files:/var/www/html/files
+      - slims_images:/var/www/html/images
+      - slims_repository:/var/www/html/repository
+    environment:
+      # These will be automatically injected by Coolify when you link a database service.
+      # Replace 'mariadb_service_name_in_coolify' with the actual name of your DB service in Coolify.
+      - DB_HOST=${{service.mariadb_service_name_in_coolify.host}}
+      - DB_NAME=${{service.mariadb_service_name_in_coolify.database}}
+      - DB_USER=${{service.mariadb_service_name_in_coolify.username}}
+      - DB_PASSWORD=${{service.mariadb_service_name_in_coolify.password}}
+      - DB_PORT=${{service.mariadb_service_name_in_coolify.port}}
+      # SLiMS needs to know its base URL if it's not at the root of the domain
+      # Coolify provides SERVICE_FQDN_SLIMS_APP (replace slims_app with your Coolify service name)
+      # SLiMS's sysconfig.inc.php usually auto-detects this, but if not,
+      # you might need to modify sysconfig.inc.php or set a specific SLiMS env var for it.
+      # For now, we'll assume SLiMS auto-detection works behind Coolify's proxy.
+
+      # PHP settings (can also be set in php.ini in the Dockerfile)
+      - PHP_UPLOAD_MAX_FILESIZE=64M
+      - PHP_POST_MAX_SIZE=64M
+      - PHP_MEMORY_LIMIT=256M
+    # Coolify will handle health checks. If you need a specific one:
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost/"] # or a more specific SLiMS path
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 30s
+
+# Define named volumes for Coolify to manage
+volumes:
+  slims_config:
+    driver: local # Coolify default
+  slims_files:
+    driver: local
+  slims_images:
+    driver: local
+  slims_repository:
+    driver: local
