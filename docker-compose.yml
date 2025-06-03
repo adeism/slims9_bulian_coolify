@@ -1,64 +1,48 @@
 services:
-  # Ganti 'slimsapp' dengan nama layanan yang Anda inginkan di Coolify
   slimsapp:
-    build: . # Ini akan menggunakan Dockerfile di root
-    restart: unless-stopped # Kebijakan restart
+    build: .
+    restart: unless-stopped
     volumes:
-      # config/database.php akan dibuat oleh installer SLiMS dan perlu persisten
       - slims_config:/var/www/html/config
-      # Data unggahan SLiMS dan data lain yang harus persisten
       - slims_files:/var/www/html/files
       - slims_images:/var/www/html/images
       - slims_repository:/var/www/html/repository
     environment:
-      # Variabel ini sekarang akan menunjuk ke layanan 'mariadb' yang didefinisikan di bawah
-      # Coolify akan menggunakan ini untuk menghubungkan ke layanan DB
+      # Coolify akan me-resolve {{service.mariadb.host}} dll. menjadi nilai aktual
+      # dari layanan 'mariadb' yang didefinisikan di bawah.
       - DB_HOST=${{service.mariadb.host}}
-      - DB_NAME=${{service.mariadb.database}}
-      - DB_USER=${{service.mariadb.username}}
-      - DB_PASSWORD=${{service.mariadb.password}}
-      - DB_PORT=${{service.mariadb.portInternal}} # Gunakan port internal untuk komunikasi antar service
+      - DB_NAME=${{service.mariadb.database}} # Ini akan mengambil nilai dari MARIADB_DATABASE layanan mariadb
+      - DB_USER=${{service.mariadb.username}} # Ini akan mengambil nilai dari MARIADB_USER layanan mariadb
+      - DB_PASSWORD=${{service.mariadb.password}} # Ini akan mengambil nilai dari MARIADB_PASSWORD layanan mariadb
+      - DB_PORT=${{service.mariadb.portInternal}} # Gunakan port internal (biasanya 3306 untuk mariadb)
 
-      # Pengaturan PHP
       - PHP_UPLOAD_MAX_FILESIZE=64M
       - PHP_POST_MAX_SIZE=64M
       - PHP_MEMORY_LIMIT=256M
       - PHP_MAX_EXECUTION_TIME=300
     depends_on:
       mariadb:
-        condition: service_healthy # Tunggu sampai mariadb sehat sebelum slimsapp dimulai
-    # Coolify akan menangani FQDN dan port exposure.
-    # Jika Anda perlu healthcheck spesifik:
-    # healthcheck:
-    #   test: ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 60s
+        condition: service_healthy
 
-  # Layanan MariaDB (akan dikelola oleh Coolify sebagai bagian dari stack ini)
   mariadb:
     image: mariadb:10.11
     restart: unless-stopped
     volumes:
       - slims_mariadb_data:/var/lib/mysql
     environment:
-      # Coolify akan memungkinkan Anda untuk mengedit variabel-variabel ini di UI-nya.
-      # Atau, Anda bisa meng-hardcode nilai default di sini dan mengubahnya nanti.
-      # Nilai default di bawah ini HANYA CONTOH, GANTI DENGAN YANG AMAN.
-      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-RootP@$$wOrdCoolify}
-      - MARIADB_DATABASE=${MARIADB_DATABASE:-slims_db}
-      - MARIADB_USER=${MARIADB_USER:-slims_user}
-      - MARIADB_PASSWORD=${MARIADB_PASSWORD:-P@$$wOrdCoolify}
-    # Coolify umumnya tidak mengekspos port DB secara default kecuali diminta.
-    # Untuk akses dari layanan lain dalam stack yang sama, gunakan nama layanan dan port internal.
+      # Atur nilai-nilai ini di UI Coolify untuk layanan mariadb.
+      # Jika Anda tidak set di UI, nilai default di bawah akan digunakan.
+      # SANGAT DISARANKAN untuk MENGGANTI nilai default ini.
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-SuperS3cretRootP@sswOrd}
+      - MARIADB_DATABASE=${MARIADB_DATABASE:-slimsdatabase}
+      - MARIADB_USER=${MARIADB_USER:-slimsuser}
+      - MARIADB_PASSWORD=${MARIADB_PASSWORD:-SuperS3cretP@sswOrd}
     healthcheck:
       test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u", "root", "-p${MARIADB_ROOT_PASSWORD}"]
       interval: 20s
       timeout: 10s
       retries: 5
 
-# Definisikan named volumes agar Coolify dapat mengelolanya
 volumes:
   slims_config:
     driver: local
@@ -68,5 +52,5 @@ volumes:
     driver: local
   slims_repository:
     driver: local
-  slims_mariadb_data: # Volume untuk data MariaDB
+  slims_mariadb_data:
     driver: local
